@@ -1,9 +1,14 @@
 import Phaser from 'phaser';
-import { LEVEL } from './level';
 import { TILE, COLS, ROWS, CONE_RANGE, CONE_HALF_ANGLE } from './constants';
-import type { CameraState, Point } from './types';
+import type { TileType, CameraState, Point } from './types';
 
 const RAY_STEP = 4;
+
+let currentGrid: TileType[][] = [];
+
+export const setGrid = (grid: TileType[][]): void => {
+  currentGrid = grid;
+};
 
 export const raycast = (ox: number, oy: number, angle: number, maxDist: number): number => {
   const rad = Phaser.Math.DegToRad(angle);
@@ -22,7 +27,7 @@ export const raycast = (ox: number, oy: number, angle: number, maxDist: number):
 
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return dist;
     if (col === startCol && row === startRow) continue;
-    if (LEVEL[row][col] === 1) return dist;
+    if (currentGrid[row]?.[col] === 1) return dist;
   }
   return maxDist;
 };
@@ -63,27 +68,22 @@ export const buildConePolygon = (cam: CameraState, numRays = 30): Point[] => {
   return points;
 };
 
-// how far a point is from the nearest edge of a camera's vision cone
-// returns 0 if inside the cone, positive distance otherwise
 export const nearestConeDistance = (px: number, py: number, cam: CameraState): number => {
   const dx = px - cam.x;
   const dy = py - cam.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  if (dist > CONE_RANGE * 1.5) return dist; // too far to matter
+  if (dist > CONE_RANGE * 1.5) return dist;
 
   const angleToPoint = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
   const diff = Math.abs(Phaser.Math.Angle.ShortestBetween(cam.currentAngle, angleToPoint));
 
   if (diff <= CONE_HALF_ANGLE && dist <= CONE_RANGE) {
-    return 0; // inside the cone
+    return 0;
   }
 
-  // angular distance from cone edge (in rough world units)
   const angularGap = Math.max(0, diff - CONE_HALF_ANGLE);
   const angularDist = Phaser.Math.DegToRad(angularGap) * Math.min(dist, CONE_RANGE);
-
-  // radial distance from cone range
   const radialGap = Math.max(0, dist - CONE_RANGE);
 
   return Math.sqrt(angularDist * angularDist + radialGap * radialGap);
