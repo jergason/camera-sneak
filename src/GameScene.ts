@@ -49,6 +49,7 @@ export class GameScene extends Phaser.Scene {
 
   private level = 1;
   private totalTime = 0;
+  private flashAlpha = 0;
 
   constructor() {
     super('GameScene');
@@ -101,10 +102,30 @@ export class GameScene extends Phaser.Scene {
       color: '#666688',
     }).setOrigin(0, 0).setDepth(100);
 
+    // show best time for this level
+    const best = this.getBestTime(this.level);
+    if (best !== null) {
+      this.add.text(16, 42, `BEST ${best.toFixed(1)}s`, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#44dd88',
+      }).setOrigin(0, 0).setDepth(100);
+    }
+
     this.updateHud();
   }
 
   update(_time: number, delta: number): void {
+    const dt = delta / 1000;
+
+    // fade screen flash
+    if (this.flashAlpha > 0) {
+      this.flashAlpha = Math.max(0, this.flashAlpha - dt * 2);
+      this.vignetteGfx.clear();
+      this.vignetteGfx.fillStyle(0xff0000, this.flashAlpha);
+      this.vignetteGfx.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+
     if (this.caught || this.won) return;
 
     const dt = delta / 1000;
@@ -336,9 +357,12 @@ export class GameScene extends Phaser.Scene {
     if (Math.abs(dx) < TILE / 2 && Math.abs(dy) < TILE / 2) {
       this.won = true;
       this.totalTime += this.elapsed;
+      this.saveBestTime(this.level, this.elapsed);
       const t = this.elapsed.toFixed(1);
       const total = this.totalTime.toFixed(1);
-      this.hudText.setText(`ESCAPED LVL ${this.level} in ${t}s (total: ${total}s) · R retry · N next`);
+      const best = this.getBestTime(this.level);
+      const bestStr = best !== null && best < this.elapsed ? ` (best: ${best.toFixed(1)}s)` : ' NEW BEST!';
+      this.hudText.setText(`ESCAPED LVL ${this.level} in ${t}s${bestStr} · R retry · N next`);
       this.input.keyboard!.once('keydown-R', () => this.scene.restart());
       this.input.keyboard!.once('keydown-N', () => {
         this.level++;
@@ -360,10 +384,24 @@ export class GameScene extends Phaser.Scene {
 
     const gfx = this.add.graphics().setDepth(15);
     this.cams.forEach(cam => {
+      // mount bracket — small box behind the camera
+      const mountAngle = Phaser.Math.DegToRad(cam.baseAngle + 180);
+      const mx = cam.x + Math.cos(mountAngle) * 6;
+      const my = cam.y + Math.sin(mountAngle) * 6;
+      gfx.fillStyle(0x556677);
+      gfx.fillRect(mx - 4, my - 4, 8, 8);
+      gfx.lineStyle(1, 0x778899);
+      gfx.strokeRect(mx - 4, my - 4, 8, 8);
+
+      // camera lens
       gfx.fillStyle(0xff4444);
       gfx.fillCircle(cam.x, cam.y, 5);
       gfx.lineStyle(1, 0xff6666);
       gfx.strokeCircle(cam.x, cam.y, 7);
+
+      // tiny LED blink indicator
+      gfx.fillStyle(0xff0000, 0.8);
+      gfx.fillCircle(cam.x + 3, cam.y - 3, 1.5);
     });
   }
 
@@ -453,6 +491,7 @@ export class GameScene extends Phaser.Scene {
       this.alert = Math.min(1, this.alert + dt * 0.8);
       if (this.alert >= 1) {
         this.caught = true;
+        this.flashAlpha = 0.6;
         const t = this.elapsed.toFixed(1);
         this.hudText.setText(`DETECTED at ${t}s! press R to retry`);
         this.input.keyboard!.once('keydown-R', () => this.scene.restart());
@@ -507,5 +546,22 @@ export class GameScene extends Phaser.Scene {
     if (!this.caught && !this.won) {
       this.hudText.setText('WASD/arrows · SHIFT to sneak (silent) · reach the portal');
     }
+  }
+
+  // ── best time persistence ──────────────────────────────
+  private getBestTime(level: number): number | null {
+    try {
+      const v = localStorage.getItem(`camera-sneak-best-${level}`);
+      return v !== null ? parseFloat(v) : null;
+    } catch { return null; }
+  }
+
+  private saveBestTime(level: number, time: number): void {
+    try {
+      const prev = this.getBestTime(level);
+      if (prev === null || time < prev) {
+        localStorage.setItem(`camera-sneak-best-${level}`, time.toString());
+      }
+    } catch { /* localStorage unavailable */ }
   }
 }
