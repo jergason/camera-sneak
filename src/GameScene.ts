@@ -28,7 +28,6 @@ export class GameScene extends Phaser.Scene {
   private cameraDefs: CameraDef[] = [];
   private cams: CameraState[] = [];
   private coneGfx!: Phaser.GameObjects.Graphics;
-  private alertBar!: Phaser.GameObjects.Graphics;
   private vignetteGfx!: Phaser.GameObjects.Graphics;
   private trailGfx!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
@@ -50,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private level = 1;
   private totalTime = 0;
   private flashAlpha = 0;
+  private caughtTimer = 0;
 
   constructor() {
     super('GameScene');
@@ -83,7 +83,7 @@ export class GameScene extends Phaser.Scene {
     this.trailGfx = this.add.graphics().setDepth(1);
     this.coneGfx = this.add.graphics();
     this.vignetteGfx = this.add.graphics().setDepth(90);
-    this.alertBar = this.add.graphics();
+
     this.hudText = this.add.text(WIDTH / 2, 12, '', {
       fontFamily: 'monospace',
       fontSize: '14px',
@@ -118,15 +118,13 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
 
-    // fade screen flash
-    if (this.flashAlpha > 0) {
-      this.flashAlpha = Math.max(0, this.flashAlpha - dt * 2);
-      this.vignetteGfx.clear();
-      this.vignetteGfx.fillStyle(0xff0000, this.flashAlpha);
-      this.vignetteGfx.fillRect(0, 0, WIDTH, HEIGHT);
+    if (this.caught) {
+      this.caughtTimer += dt;
+      this.updateDeathSequence(dt);
+      return;
     }
 
-    if (this.caught || this.won) return;
+    if (this.won) return;
 
     this.elapsed += dt;
     this.exitTime += dt;
@@ -137,10 +135,57 @@ export class GameScene extends Phaser.Scene {
     this.drawCones();
     this.drawPlayer();
     this.drawExitPortal();
-    this.checkDetection(dt);
+    this.checkDetection();
     this.drawVignette();
     this.checkExit();
     this.updateHud();
+  }
+
+  private updateDeathSequence(dt: number): void {
+    const t = this.caughtTimer;
+
+    // snap all cameras toward player and extend range to reach them
+    this.cams.forEach(cam => {
+      const dx = this.playerX - cam.x;
+      const dy = this.playerY - cam.y;
+      const distToPlayer = Math.sqrt(dx * dx + dy * dy) + TILE;
+      const angleToPlayer = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+      const diff = Phaser.Math.Angle.ShortestBetween(cam.currentAngle, angleToPlayer);
+      cam.currentAngle += diff * Math.min(t * 8, 1);
+      cam.range = Math.max(cam.range, distToPlayer);
+      cam.detected = true;
+    });
+
+    // redraw cones (all red, all pointing at player)
+    this.drawCones();
+    this.drawPlayer();
+
+    // screen shake — decays over time
+    const shakeIntensity = Math.max(0, 6 - t * 4);
+    if (shakeIntensity > 0) {
+      this.cameras.main.setScroll(
+        (Math.random() - 0.5) * shakeIntensity * 2,
+        (Math.random() - 0.5) * shakeIntensity * 2,
+      );
+    } else {
+      this.cameras.main.setScroll(0, 0);
+    }
+
+    // red flash — peaks fast then fades
+    const flashIntensity = t < 0.15 ? t / 0.15 : Math.max(0, 1 - (t - 0.15) * 1.5);
+    this.vignetteGfx.clear();
+    if (flashIntensity > 0) {
+      this.vignetteGfx.fillStyle(0xff0000, flashIntensity * 0.5);
+      this.vignetteGfx.fillRect(-10, -10, WIDTH + 20, HEIGHT + 20);
+    }
+
+    // show retry text after the drama settles
+    if (t > 1.0) {
+      this.cameras.main.setScroll(0, 0);
+      const elapsed = this.elapsed.toFixed(1);
+      this.hudText.setText(`DETECTED at ${elapsed}s! press R to retry`);
+      this.input.keyboard!.once('keydown-R', () => this.scene.restart());
+    }
   }
 
   // ── map ─────────────────────────────────────────────────
@@ -464,9 +509,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── detection ───────────────────────────────────────────
-  private checkDetection(dt: number): void {
-    let seen = false;
-
+  private checkDetection(): void {
     this.proximity = this.cams.reduce((closest, cam) => {
       const d = nearestConeDistance(this.playerX, this.playerY, cam);
       return Math.min(closest, d);
@@ -474,20 +517,12 @@ export class GameScene extends Phaser.Scene {
 
     this.cams.forEach(cam => {
       cam.detected = isPointInCone(this.playerX, this.playerY, cam);
-      if (cam.detected) seen = true;
     });
 
+    const seen = this.cams.some(cam => cam.detected);
     if (seen) {
-      this.alert = Math.min(1, this.alert + dt * 0.8);
-      if (this.alert >= 1) {
-        this.caught = true;
-        this.flashAlpha = 0.6;
-        const t = this.elapsed.toFixed(1);
-        this.hudText.setText(`DETECTED at ${t}s! press R to retry`);
-        this.input.keyboard!.once('keydown-R', () => this.scene.restart());
-      }
-    } else {
-      this.alert = Math.max(0, this.alert - dt * 0.5);
+      this.caught = true;
+      this.caughtTimer = 0;
     }
   }
 
@@ -514,25 +549,6 @@ export class GameScene extends Phaser.Scene {
 
   // ── hud ─────────────────────────────────────────────────
   private updateHud(): void {
-    const bar = this.alertBar;
-    bar.clear();
-    bar.setDepth(100);
-
-    const barW = 120;
-    const barH = 8;
-    const bx = WIDTH - barW - 16;
-    const by = 10;
-
-    bar.fillStyle(0x222222, 0.8);
-    bar.fillRect(bx, by, barW, barH);
-
-    const color = this.alert > 0.6 ? 0xff2222 : this.alert > 0.3 ? 0xffaa22 : 0x44dd88;
-    bar.fillStyle(color);
-    bar.fillRect(bx, by, barW * this.alert, barH);
-
-    bar.lineStyle(1, 0x888888);
-    bar.strokeRect(bx, by, barW, barH);
-
     this.timerText.setText(this.elapsed.toFixed(1) + 's');
 
     if (!this.caught && !this.won) {
