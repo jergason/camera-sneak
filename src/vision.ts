@@ -14,8 +14,6 @@ export const raycast = (ox: number, oy: number, angle: number, maxDist: number):
   const rad = Phaser.Math.DegToRad(angle);
   const dx = Math.cos(rad);
   const dy = Math.sin(rad);
-  const startCol = Math.floor(ox / TILE);
-  const startRow = Math.floor(oy / TILE);
   let dist = 0;
 
   while (dist < maxDist) {
@@ -26,7 +24,6 @@ export const raycast = (ox: number, oy: number, angle: number, maxDist: number):
     const row = Math.floor(y / TILE);
 
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return dist;
-    if (col === startCol && row === startRow) continue;
     if (currentGrid[row]?.[col] === 1) return dist;
   }
   return maxDist;

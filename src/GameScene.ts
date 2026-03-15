@@ -383,24 +383,10 @@ export class GameScene extends Phaser.Scene {
 
     const gfx = this.add.graphics().setDepth(15);
     this.cams.forEach(cam => {
-      // mount bracket — small box behind the camera
-      const mountAngle = Phaser.Math.DegToRad(cam.baseAngle + 180);
-      const mx = cam.x + Math.cos(mountAngle) * 6;
-      const my = cam.y + Math.sin(mountAngle) * 6;
-      gfx.fillStyle(0x556677);
-      gfx.fillRect(mx - 4, my - 4, 8, 8);
-      gfx.lineStyle(1, 0x778899);
-      gfx.strokeRect(mx - 4, my - 4, 8, 8);
-
-      // camera lens
       gfx.fillStyle(0xff4444);
       gfx.fillCircle(cam.x, cam.y, 5);
       gfx.lineStyle(1, 0xff6666);
       gfx.strokeCircle(cam.x, cam.y, 7);
-
-      // tiny LED blink indicator
-      gfx.fillStyle(0xff0000, 0.8);
-      gfx.fillCircle(cam.x + 3, cam.y - 3, 1.5);
     });
   }
 

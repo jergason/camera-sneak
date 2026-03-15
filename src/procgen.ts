@@ -64,28 +64,26 @@ const placeWallCluster = (grid: TileType[][], rng: () => number): void => {
   });
 };
 
-// find a floor tile adjacent to a wall (good camera placement)
-const findWallAdjacentFloors = (grid: TileType[][]): { col: number; row: number; wallDir: number }[] => {
+// find floor tiles adjacent to walls — camera goes on the FLOOR tile, facing away from wall
+const findCameraSpots = (grid: TileType[][]): { col: number; row: number; wallDir: number }[] => {
   const spots: { col: number; row: number; wallDir: number }[] = [];
-  const dirs = [
-    { dr: -1, dc: 0, angle: 180 }, // wall above, camera faces down (180 is left, 90 is down)
-    { dr: 1, dc: 0, angle: 0 },    // wall below
-    { dr: 0, dc: -1, angle: 0 },   // wall left
-    { dr: 0, dc: 1, angle: 180 },  // wall right
-  ];
 
   for (let r = 1; r < ROWS - 1; r++) {
     for (let c = 1; c < COLS - 1; c++) {
-      if (grid[r][c] !== 1) continue; // must be a wall
-      dirs.forEach(({ dr, dc, angle }) => {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr > 0 && nr < ROWS - 1 && nc > 0 && nc < COLS - 1 && grid[nr][nc] === 0) {
-          // the floor tile next to the wall — camera goes ON the wall facing outward
-          const facingAngle = Math.atan2(dr, dc) * (180 / Math.PI);
+      if (grid[r][c] !== 0) continue; // must be a floor tile
+
+      // check each neighbor — if it's a wall, this is a camera spot facing away from it
+      const neighbors: [number, number][] = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [dr, dc] of neighbors) {
+        const wr = r + dr;
+        const wc = c + dc;
+        if (wr >= 0 && wr < ROWS && wc >= 0 && wc < COLS && grid[wr][wc] === 1) {
+          // camera on floor tile (r,c), facing AWAY from wall at (wr,wc)
+          // away = opposite direction of wall relative to camera
+          const facingAngle = Math.atan2(-dr, -dc) * (180 / Math.PI);
           spots.push({ col: c, row: r, wallDir: facingAngle });
         }
-      });
+      }
     }
   }
 
@@ -140,8 +138,8 @@ export const generateLevel = (seed: number): GeneratedLevel => {
     }
   }
 
-  // place cameras on wall tiles facing into open space
-  const wallSpots = findWallAdjacentFloors(grid);
+  // place cameras on floor tiles next to walls, facing outward
+  const wallSpots = findCameraSpots(grid);
   const numCameras = 4 + Math.floor(rng() * 4); // 4-7 cameras
 
   // shuffle and pick
