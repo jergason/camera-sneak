@@ -128,7 +128,6 @@ export class GameScene extends Phaser.Scene {
 
     if (this.caught || this.won) return;
 
-    const dt = delta / 1000;
     this.elapsed += dt;
     this.exitTime += dt;
     this.movePlayer(dt);
