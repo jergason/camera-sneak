@@ -2,15 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Camera Sneak</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games</title>
   <style>
-    * { margin: 0; padding: 0; }
-    body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: none; }
-    canvas { display: block; touch-action: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 3rem;
+      color: #888;
+    }
+    .games {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    a.card {
+      display: block;
+      width: 280px;
+      padding: 2rem;
+      background: #151515;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    a.card:hover {
+      border-color: #555;
+      transform: translateY(-2px);
+    }
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 0.6rem;
+      color: #fff;
+    }
+    .card p {
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #888;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.2em 0.6em;
+      border-radius: 3px;
+      margin-bottom: 0.8rem;
+    }
+    .tag.stealth { background: #1a2a1a; color: #6a6; }
+    .tag.action { background: #2a1a1a; color: #a66; }
   </style>
 </head>
 <body>
-  <script type="module" src="/src/main.ts"></script>
+  <h1>Arcade</h1>
+  <div class="games">
+    <a class="card" href="./camera-sneak/">
+      <span class="tag stealth">stealth</span>
+      <h2>Camera Sneak</h2>
+      <p>Dodge sweeping security cameras to reach the exit. Metal Gear Solid vibes in the browser.</p>
+    </a>
+    <a class="card" href="./void-marine/">
+      <span class="tag action">action</span>
+      <h2>Void Marine</h2>
+      <p>Side-scrolling run-and-gun through alien-infested void stations. Three worlds, big bosses.</p>
+    </a>
+  </div>
 </body>
 </html>
